@@ -1,2 +1,1 @@
-# adsk
-Administracja Systemów Komputerowych - projekt
+# Administracja Systemów Komputerowych - projekt
