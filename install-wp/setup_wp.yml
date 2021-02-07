@@ -1,0 +1,104 @@
+---
+-
+  hosts: wp_nodes
+  become: yes
+  vars: 
+    wp_download_url: https://pl.wordpress.org/latest-pl_PL.zip
+    wp_dest_dir: /var/www/blog/
+    wp_web_root: "{{wp_dest_dir ~ '/wordpress'}}"
+    os_packages:
+      - cowsay
+      - git
+      - mc
+      - unzip
+      - MySQL-python
+    DB_NAME: "blog"
+    DB_USER: "blogger"
+    DB_PW: "blogger!"
+    EPEL_REPO_RPM_URL: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    REMI_REPO_RPM_URL: https://rpms.remirepo.net/enterprise/remi-release-7.rpm
+  tasks:
+    - name: "Install packages"
+      yum:
+        name: "{{ os_packages }}"
+        state: latest
+    - name: "Install epel repo"
+      yum:
+        name: "{{ EPEL_REPO_RPM_URL }}"
+        state: present
+    - name: "Download WordPress"
+      get_url: 
+        url: "{{ wp_download_url }}"
+        dest: "/tmp/wp.zip"
+    - name: "Create WP destination directory"
+      file:
+        path: "{{ wp_dest_dir }}"
+        state: directory
+    - name: "Unarchive WordPress.zip"
+      unarchive:
+        src: "/tmp/wp.zip"
+        dest: "{{ wp_dest_dir }}"
+        remote_src: yes
+    - name: "Create MariaDB destination directory"
+      file:
+        path: /etc/yum.repos.d
+        state: directory
+    - name: "Copy MariaDB repo config file"
+      copy:
+        src: files/Mariadb.repo
+        dest: /etc/yum.repos.d/MariaDB.repo
+    - name: "Install MariaDB server"
+      yum:
+        name:
+          - MariaDB-server
+          - MariaDB-client
+        state: present
+    - name: "Start DB server"
+      service:
+        name: mariadb
+        enabled: true
+        state: started
+    - name: "Create database for blog"
+      mysql_db:
+        name: "{{DB_NAME}}"
+        state: present
+    - name: "Create DB user"
+      mysql_user:
+        name: "{{DB_USER}}"
+        password: "{{DB_PW}}"
+        priv: "{{ DB_NAME ~ '.*:ALL' }}"
+        state: present
+    - name: "Create wordpress cfg destination directory"
+      file:
+        path: "{{ wp_web_root }}"
+        state: directory
+    - name: "Place wordpress cfg in directory"
+      template:
+        src: files/wp-config.php
+        dest: "{{ wp_web_root ~ '/wp-config.php'}}"
+    - name: "Install php repo"
+      yum:
+        name: "{{ REMI_REPO_RPM_URL }}"
+        state: latest
+    - name: "Install php packages"
+      yum:
+        name:
+          - php74
+          - php74-php
+          - php74-php-mysqlnd
+          - php74-php-pecl-mysql
+    - name: "Install http server"
+      yum:
+        name: httpd
+        state: latest
+    - name: "Configure http server"
+      template:
+        src: files/vhost.conf
+        dest: /etc/httpd/conf.d/blog.conf
+    - file:
+        path: /etc/httpd/conf.d/welcome.conf
+        state: absent
+    - name: "Restart http server"
+      service:
+        name: httpd
+        state: restarted
