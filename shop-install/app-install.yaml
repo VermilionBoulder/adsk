@@ -1,0 +1,10 @@
+---
+- hosts: app_nodes
+  become: yes
+  vars:
+    JRE_RPM_URL: https://corretto.aws/downloads/latest/amazon-corretto-11-x64-al2-jre.rpm
+  tasks:
+    - name: "install Java Runtime Enviroment (JRE)"
+      yum:
+        name: "{{ JRE_RPM_URL }}"
+        state: present
